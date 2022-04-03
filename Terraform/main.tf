@@ -91,9 +91,9 @@ resource "google_compute_instance" "pgsql-vm" {
   }
 }
 
-#Patroni VM creation, adding user's SSH keys for access
-resource "google_compute_instance" "patroni-vm" {
-  name = "${var.patroni_vm_name}"
+#HAProxy VM creation, adding user's SSH keys for access
+resource "google_compute_instance" "haproxy-vm" {
+  name = "${var.haproxy_vm_name}"
   machine_type = "e2-standard-4"
   network_interface {
     network = google_compute_network.vnet-us-east1.name

@@ -1,0 +1,57 @@
+---
+- hosts: all
+  gather_facts: no
+
+- name: Setup of etcd
+  hosts: etcd
+  remote_user: dbadmin
+  become: yes
+  
+  tasks:
+  - name: Download and extract etcd binaries
+    unarchive:
+      src: https://github.com/etcd-io/etcd/releases/download/v3.4.16/etcd-v3.4.16-linux-amd64.tar.gz
+      dest: /tmp/
+      remote_src: yes
+  
+  - name: Copying etcd binaries to /usr/local/bin
+    copy:
+      src: /tmp/etcd-v3.4.16-linux-amd64/{{item}}
+      dest: /usr/local/bin/
+      mode: 0755
+      remote_src: yes
+    loop:
+      - etcd
+      - etcdctl
+
+  - name: etcd configuration folders
+    file:
+      path: "{{item}}"
+      state: directory
+      mode: 0755
+    loop:
+      - /var/lib/etcd/
+      - /etc/etcd/
+
+  - name: Creating etcd user
+    user:
+      name: etcd
+      shell: /sbin/nologin
+
+  - name: Setting ownership of etcd folder
+    file:
+      path: /var/lib/etcd/
+      owner: etcd
+      group: etcd
+
+  - name: Creating etcd service
+    copy:
+      src: ../files/etcd.service
+      dest: /etc/systemd/system/etcd.service
+
+  - name: Starting etcd service
+    systemd:
+      daemon_reload: yes
+      state: started
+      name: etcd
+      enabled: yes

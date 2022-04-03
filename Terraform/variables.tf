@@ -19,7 +19,7 @@ variable "vpc_subnet_name" { }
 #Instance properties
 variable "pgsql_vm_name" { }
 
-variable "patroni_vm_name" { }
+variable "haproxy_vm_name" { }
 
 variable "etcd_vm_name" { }
 

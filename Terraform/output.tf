@@ -6,12 +6,12 @@ output "pgsql-vm_ip_info" {
   value = [google_compute_instance.pgsql-vm[*].network_interface.0.network_ip, google_compute_instance.pgsql-vm[*].network_interface.0.access_config.0.nat_ip]
 }
 
-output "patroni-vm_name" {
-    value = google_compute_instance.patroni-vm.name
+output "haproxy-vm_name" {
+    value = google_compute_instance.haproxy-vm.name
 }
 
-output "patroni-vm_ip_info" {
-  value = [google_compute_instance.patroni-vm.network_interface.0.network_ip, google_compute_instance.patroni-vm.network_interface.0.access_config.0.nat_ip]
+output "haproxy-vm_ip_info" {
+  value = [google_compute_instance.haproxy-vm.network_interface.0.network_ip, google_compute_instance.haproxy-vm.network_interface.0.access_config.0.nat_ip]
 }
 
 output "etcd-vm_name" {
