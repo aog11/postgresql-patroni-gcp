@@ -15,7 +15,7 @@ The result of this deployment is roughly illustrated down below:
 ![image](https://user-images.githubusercontent.com/15926414/161445972-2a655689-c253-485c-b4eb-2d54af1f0f18.png)
 
 1. Two PostgreSQL machines with Patroni installed to manage database initialization, replication and failover; these VMs are in their own subnet, with communication between them through ports 22, 5432 and 8008.
-2. One etcd server that will server as the configuration storage for Patroni. This server resides in its own subnet, and is accessed by the database servers through ports 2379, 2380 and 7001.
+2. One etcd server that will serve as the configuration storage for Patroni. This server resides in its own subnet, and is accessed by the database servers through ports 2379, 2380 and 7001.
 3. One HAProxy server residing in a separte subnet, that queries the status of the database services, accessing the database subnet through ports 5432 and 8008.
 
 For the purposes of this lab, two public access rules were configured:
