@@ -45,7 +45,7 @@ resource "google_compute_firewall" "private_access" {
 resource "google_compute_firewall" "public_access" {
   name    = "fw-public-access"
   network = google_compute_network.vnet-us-east1.name
-  source_ranges = [var.vpc_ip_range]
+  source_ranges = [var.user_public_ip]
 
   allow {
     protocol = "tcp"
