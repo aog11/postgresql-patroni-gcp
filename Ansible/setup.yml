@@ -1,5 +1,13 @@
 ---
 - hosts: all
+  gather_facts: no
+
+  tasks:
+
+  - name: Loading variables
+    include_vars:
+      file: ./variables.yml
+      name: var
 
 - name: Setup of etcd
   hosts: etcd
@@ -8,11 +16,6 @@
   become: yes
   
   tasks:
-
-  - name: Loading variables
-    include_vars:
-      file: ./variables.yml
-      name: var
 
   - name: Download and extract etcd binaries
     unarchive:
@@ -103,3 +106,56 @@
       systemd:
         name: haproxy
         state: restarted
+
+- name: Setup of Patroni
+  hosts: pgsql
+  gather_facts: no
+  remote_user: dbadmin
+  become: yes
+
+  tasks:
+
+  - name: Installing PostgreSQL RPM
+    dnf:
+      name: https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+      state: latest
+      disable_gpg_check: yes
+
+  - name: Installing Patroni package
+    dnf:
+      name: patroni
+      state: latest
+
+  - name: Copying Patroni configuration file
+    copy:
+      src: ../files/patroni.yml
+      dest: /etc/patroni.yml
+
+  - name: Obtaining node private IP
+    shell: hostname -I | awk '{print $1}'
+    register: node_ip
+
+  - name: Replacing the servers in template file patroni.yml 
+    replace:
+      path: /etc/patroni.yml
+      regexp: 'pgsql_node_private_ip'
+      replace: "{{ node_ip.stdout }}"    
+  
+  - name: Replacing the servers in template file patroni.yml 
+    replace:
+      path: /etc/patroni.yml
+      regexp: 'pgsql_vm1_private_ip'
+      replace: "{{ var.pgsql_vm1_private_ip }}"
+
+  - name: Replacing the servers in template file patroni.yml 
+    replace:
+      path: /etc/patroni.yml
+      regexp: 'pgsql_vm2_private_ip'
+      replace: "{{ var.pgsql_vm2_private_ip }}"
+
+  - name: Replacing the servers in template file patroni.yml 
+    replace:
+      path: /etc/patroni.yml
+      regexp: 'etcd_vm_private_ip'
+      replace: "{{ var.etcd_vm_private_ip }}"
+

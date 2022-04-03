@@ -1,2 +1,3 @@
 etcd_vm_private_ip: 172.20.0.2
-pip_packages: patroni python-etcd psycopg2
+pgsql_vm1_private_ip: 172.20.0.3
+pgsql_vm2_private_ip: 172.20.0.5
