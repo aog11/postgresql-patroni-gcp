@@ -1,0 +1,2 @@
+etcd_vm_private_ip: 172.20.0.2
+pip_packages: patroni python-etcd psycopg2

@@ -49,7 +49,7 @@ resource "google_compute_firewall" "public_access" {
 
   allow {
     protocol = "tcp"
-    ports    = ["22"]
+    ports    = ["22","31334"]
   }
 }
 

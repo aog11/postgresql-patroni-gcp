@@ -1,13 +1,19 @@
 ---
 - hosts: all
-  gather_facts: no
 
 - name: Setup of etcd
   hosts: etcd
   remote_user: dbadmin
+  gather_facts: no
   become: yes
   
   tasks:
+
+  - name: Loading variables
+    include_vars:
+      file: ./variables.yml
+      name: var
+
   - name: Download and extract etcd binaries
     unarchive:
       src: https://github.com/etcd-io/etcd/releases/download/v3.4.16/etcd-v3.4.16-linux-amd64.tar.gz
@@ -49,9 +55,51 @@
       src: ../files/etcd.service
       dest: /etc/systemd/system/etcd.service
 
+  - name: etcd configuration file
+    copy:
+      dest: /etc/default/etcd
+      content: |
+        ETCD_LISTEN_PEER_URLS="http://{{ var.etcd_vm_private_ip }}:2380,http://127.0.0.1:7001"
+        ETCD_LISTEN_CLIENT_URLS="http://127.0.0.1:2379, http://{{ var.etcd_vm_private_ip }}:2379"
+        ETCD_INITIAL_ADVERTISE_PEER_URLS="http://{{ var.etcd_vm_private_ip }}:2380"
+        ETCD_INITIAL_CLUSTER="etcd0=http://{{ var.etcd_vm_private_ip }}:2380,"
+        ETCD_ADVERTISE_CLIENT_URLS="http://{{ var.etcd_vm_private_ip }}:2379"
+        ETCD_INITIAL_CLUSTER_TOKEN="pgsql-vm"
+        ETCD_INITIAL_CLUSTER_STATE="new"
+      mode: 0644
+
   - name: Starting etcd service
     systemd:
       daemon_reload: yes
       state: started
       name: etcd
       enabled: yes
+
+- name: Setup of HAProxy
+  hosts: haproxy
+  gather_facts: no
+  remote_user: dbadmin
+  become: yes
+
+  tasks:
+
+    - name: Setting SELinux in Permissve mode
+      selinux:
+        policy: targeted
+        state: permissive
+    
+    - name: Installing HAProxy package
+      dnf:
+        name: haproxy
+        state: latest
+
+    - name: Copying haproxy.cfg
+      copy:
+        src: ../files/haproxy.cfg
+        dest: /etc/haproxy/haproxy.cfg
+        mode: 0644
+
+    - name: Restarting HAProxy service
+      systemd:
+        name: haproxy
+        state: restarted
