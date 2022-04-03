@@ -37,7 +37,7 @@ resource "google_compute_firewall" "private_access" {
 
   allow {
     protocol = "tcp"
-    ports    = ["22", "5432", "2379", "2380", "8008", "31333", "31334"]
+    ports    = ["22", "5432", "2379", "2380", "7001", "8008", "31333", "31334"]
   }
 }
 

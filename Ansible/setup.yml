@@ -1,6 +1,7 @@
 ---
 - hosts: all
   gather_facts: no
+  remote_user: dbadmin
 
   tasks:
 
@@ -8,6 +9,10 @@
     include_vars:
       file: ./variables.yml
       name: var
+  
+  - name: Obtaining node private IP
+    shell: hostname -I | awk '{print $1}'
+    register: node_ip
 
 - name: Setup of etcd
   hosts: etcd
@@ -52,6 +57,7 @@
       path: /var/lib/etcd/
       owner: etcd
       group: etcd
+      mode: 0700
 
   - name: Creating etcd service
     copy:
@@ -60,13 +66,15 @@
 
   - name: etcd configuration file
     copy:
-      dest: /etc/default/etcd
+      dest: /etc/etcd/etcd.conf
       content: |
         ETCD_LISTEN_PEER_URLS="http://{{ var.etcd_vm_private_ip }}:2380,http://127.0.0.1:7001"
         ETCD_LISTEN_CLIENT_URLS="http://127.0.0.1:2379, http://{{ var.etcd_vm_private_ip }}:2379"
         ETCD_INITIAL_ADVERTISE_PEER_URLS="http://{{ var.etcd_vm_private_ip }}:2380"
-        ETCD_INITIAL_CLUSTER="etcd0=http://{{ var.etcd_vm_private_ip }}:2380,"
+        ETCD_INITIAL_CLUSTER="pgsql-dcs=http://{{ var.etcd_vm_private_ip }}:2380"
         ETCD_ADVERTISE_CLIENT_URLS="http://{{ var.etcd_vm_private_ip }}:2379"
+        ETCD_ENABLE_V2=true
+        ETCD_DATA_DIR=/var/lib/etcd
         ETCD_INITIAL_CLUSTER_TOKEN="pgsql-vm"
         ETCD_INITIAL_CLUSTER_STATE="new"
       mode: 0644
@@ -74,7 +82,7 @@
   - name: Starting etcd service
     systemd:
       daemon_reload: yes
-      state: started
+      state: restarted
       name: etcd
       enabled: yes
 
@@ -86,7 +94,7 @@
 
   tasks:
 
-    - name: Setting SELinux in Permissve mode
+    - name: Setting SELinux in Permissive mode
       selinux:
         policy: targeted
         state: permissive
@@ -102,6 +110,18 @@
         dest: /etc/haproxy/haproxy.cfg
         mode: 0644
 
+    - name: Replacing the servers in template file haproxy.cfg
+      replace:
+        path: /etc/haproxy/haproxy.cfg
+        regexp: 'pgsql_vm1_private_ip'
+        replace: "{{ var.pgsql_vm1_private_ip }}"
+
+    - name: Replacing the servers in template file haproxy.cfg 
+      replace:
+        path: /etc/haproxy/haproxy.cfg
+        regexp: 'pgsql_vm2_private_ip'
+        replace: "{{ var.pgsql_vm2_private_ip }}"
+
     - name: Restarting HAProxy service
       systemd:
         name: haproxy
@@ -115,7 +135,7 @@
 
   tasks:
 
-  - name: Installing PostgreSQL RPM
+  - name: Installing PostgreSQL repository RPM
     dnf:
       name: https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm
       state: latest
@@ -126,36 +146,98 @@
       name: patroni
       state: latest
 
+  - name: Creating patroni config directory
+    file:
+      path: /etc/patroni/
+      state: directory
+      mode: 0755
+
   - name: Copying Patroni configuration file
     copy:
       src: ../files/patroni.yml
-      dest: /etc/patroni.yml
-
-  - name: Obtaining node private IP
-    shell: hostname -I | awk '{print $1}'
-    register: node_ip
+      dest: /etc/patroni/patroni.yml
 
   - name: Replacing the servers in template file patroni.yml 
     replace:
-      path: /etc/patroni.yml
+      path: /etc/patroni/patroni.yml
       regexp: 'pgsql_node_private_ip'
       replace: "{{ node_ip.stdout }}"    
   
   - name: Replacing the servers in template file patroni.yml 
     replace:
-      path: /etc/patroni.yml
+      path: /etc/patroni/patroni.yml
       regexp: 'pgsql_vm1_private_ip'
       replace: "{{ var.pgsql_vm1_private_ip }}"
 
   - name: Replacing the servers in template file patroni.yml 
     replace:
-      path: /etc/patroni.yml
+      path: /etc/patroni/patroni.yml
       regexp: 'pgsql_vm2_private_ip'
       replace: "{{ var.pgsql_vm2_private_ip }}"
 
   - name: Replacing the servers in template file patroni.yml 
     replace:
-      path: /etc/patroni.yml
+      path: /etc/patroni/patroni.yml
       regexp: 'etcd_vm_private_ip'
       replace: "{{ var.etcd_vm_private_ip }}"
 
+- name: Setup of PostgreSQL
+  hosts: pgsql
+  gather_facts: no
+  remote_user: dbadmin
+  become: yes
+
+  tasks:
+
+    - name: Partitioninig the attached disk
+      parted:
+        device: /dev/sdb
+        number: 1
+        state: present
+
+    - name: Formatting the attached disk
+      filesystem:
+        fstype: xfs
+        dev: /dev/sdb1
+
+    - name: Creating the postgres data directory
+      file: 
+        path: /var/lib/pgsql/13/
+        state: directory
+        mode: 0755
+
+    - name: Mounting the disk
+      mount:
+        fstype: xfs
+        src: /dev/sdb1
+        path: /var/lib/pgsql/13/
+        state: mounted
+
+    - name: Disabling default postgresql repo
+      shell: dnf -qy module disable postgresql
+
+    - name: Installing postgresql13-server package
+      dnf: 
+        name: postgresql13-server
+        state: latest
+    
+    #Only run during first time setup
+    - name: Deleting default PostgreSQL-13 folders
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/pgsql/13/data/
+        - /var/lib/pgsql/13/backups/
+
+    - name: Installing pip modules for Patroni
+      pip:
+        name: 
+          - urllib3
+          - patroni[etcd]
+
+    - name: Starting Patroni
+      systemd:
+        name: patroni
+        state: restarted
+        
