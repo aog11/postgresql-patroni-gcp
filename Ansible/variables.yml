@@ -1,3 +1,3 @@
 etcd_vm_private_ip: 172.20.0.2
-pgsql_vm1_private_ip: 172.20.0.4
-pgsql_vm2_private_ip: 172.20.0.5
+pgsql_vm1_private_ip: 172.21.0.2
+pgsql_vm2_private_ip: 172.21.0.3

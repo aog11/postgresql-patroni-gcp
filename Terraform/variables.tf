@@ -12,9 +12,11 @@ variable "service_account" { }
 #VPC properties
 variable "vpc_name" { }
 
-variable "vpc_ip_range" { }
+variable "etcd_ip_range" { }
 
-variable "vpc_subnet_name" { }
+variable "pgsql_ip_range" { }
+
+variable "haproxy_ip_range" { }
 
 #Instance properties
 variable "pgsql_vm_name" { }

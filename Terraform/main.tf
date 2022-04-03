@@ -20,24 +20,66 @@ resource "google_compute_network" "vnet-us-east1" {
   auto_create_subnetworks = false
 }
 
-resource "google_compute_subnetwork" "subnet-1" {
-  name = var.vpc_subnet_name
-  ip_cidr_range = var.vpc_ip_range
+#Subnet for each set of machines
+resource "google_compute_subnetwork" "subnet-etcd" {
+  name = "subnet-etcd"
+  ip_cidr_range = var.etcd_ip_range
+  region = var.region
+  network = google_compute_network.vnet-us-east1.id
+}
+
+resource "google_compute_subnetwork" "subnet-pgsql" {
+  name = "subnet-pgsql"
+  ip_cidr_range = var.pgsql_ip_range
+  region = var.region
+  network = google_compute_network.vnet-us-east1.id
+}
+
+resource "google_compute_subnetwork" "subnet-haproxy" {
+  name = "subnet-haproxy"
+  ip_cidr_range = var.haproxy_ip_range
   region = var.region
   network = google_compute_network.vnet-us-east1.id
 }
 
 #Firewall setup
 
-#Private access between nodes in through all the needed ports for the deployment (22, 5432, 2379, 2380, 8008, 31333, 31334)
-resource "google_compute_firewall" "private_access" {
-  name    = "fw-private-access"
+#Private access between postgres nodes through ports 22, 5432, 8008
+resource "google_compute_firewall" "pgsql_private_access" {
+  name    = "fw-private-access-pgsql"
   network = google_compute_network.vnet-us-east1.name
-  source_ranges = [var.vpc_ip_range]
+  source_ranges = [var.pgsql_ip_range]
+  target_tags = ["pgsql-nodes"]
 
   allow {
     protocol = "tcp"
-    ports    = ["22", "5432", "2379", "2380", "7001", "8008", "31333", "31334"]
+    ports    = ["22", "5432", "8008"]
+  }
+}
+
+#Private access from postgres nodes to etcd through ports 2379, 2380, 7001
+resource "google_compute_firewall" "etcd_private_access" {
+  name    = "fw-private-access-pgsql-to-etcd"
+  network = google_compute_network.vnet-us-east1.name
+  source_ranges = [var.pgsql_ip_range]
+  target_tags = ["etcd-node"]
+
+  allow {
+    protocol = "tcp"
+    ports    = ["2379", "2380", "7001"]
+  }
+}
+
+#Private access from haproxy node to postgres nodes through ports 5432, 8008
+resource "google_compute_firewall" "haproxy_private_access" {
+  name    = "fw-private-access-haproxy-to-postgres"
+  network = google_compute_network.vnet-us-east1.name
+  source_ranges = [var.haproxy_ip_range]
+  target_tags = ["pgsql-nodes"]
+
+  allow {
+    protocol = "tcp"
+    ports    = ["5432","8008"]
   }
 }
 
@@ -46,10 +88,24 @@ resource "google_compute_firewall" "public_access" {
   name    = "fw-public-access"
   network = google_compute_network.vnet-us-east1.name
   source_ranges = [var.user_public_ip]
+  target_tags = ["etcd-node", "haproxy-node", "pgsql-nodes"]
 
   allow {
     protocol = "tcp"
-    ports    = ["22","31334"]
+    ports    = ["22"]
+  }
+}
+
+#Public access to haproxy node through ports 31333, 31334
+resource "google_compute_firewall" "haproxy_public_access" {
+  name    = "fw-public-haproxy-access"
+  network = google_compute_network.vnet-us-east1.name
+  source_ranges = [var.user_public_ip]
+  target_tags = ["haproxy-node"]
+
+  allow {
+    protocol = "tcp"
+    ports    = ["31333", "31334"]
   }
 }
 
@@ -68,9 +124,10 @@ resource "google_compute_instance" "pgsql-vm" {
   count = 2
   name = "${var.pgsql_vm_name}${count.index + 1}"
   machine_type = "e2-standard-4"
+  tags = ["pgsql-nodes"]
   network_interface {
     network = google_compute_network.vnet-us-east1.name
-    subnetwork = google_compute_subnetwork.subnet-1.name
+    subnetwork = google_compute_subnetwork.subnet-pgsql.name
     access_config {
     }
   }
@@ -95,9 +152,10 @@ resource "google_compute_instance" "pgsql-vm" {
 resource "google_compute_instance" "haproxy-vm" {
   name = "${var.haproxy_vm_name}"
   machine_type = "e2-standard-4"
+  tags = ["haproxy-node"]
   network_interface {
     network = google_compute_network.vnet-us-east1.name
-    subnetwork = google_compute_subnetwork.subnet-1.name
+    subnetwork = google_compute_subnetwork.subnet-haproxy.name
     access_config {
     }
   }
@@ -116,9 +174,10 @@ resource "google_compute_instance" "haproxy-vm" {
 resource "google_compute_instance" "etcd-vm" {
   name = "${var.etcd_vm_name}"
   machine_type = "e2-standard-4"
+  tags = ["etcd-node"]
   network_interface {
     network = google_compute_network.vnet-us-east1.name
-    subnetwork = google_compute_subnetwork.subnet-1.name
+    subnetwork = google_compute_subnetwork.subnet-etcd.name
     access_config {
     }
   }

@@ -24,8 +24,8 @@ bootstrap:
 
     pg_hba:
     - host replication replicator 127.0.0.1/32 md5
-    - host replication replicator pgsql_vm1_private_ip/0 md5
-    - host replication replicator pgsql_vm2_private_ip/0 md5
+    - host replication replicator pgsql_vm1_private_ip md5
+    - host replication replicator pgsql_vm2_private_ip md5
     - host all all 0.0.0.0/0 md5
 
     users:
@@ -50,6 +50,7 @@ postgresql:
             password: password
     parameters:
         unix_socket_directories: '.'
+        max_connections: 150
 
 tags:
     nofailover: false

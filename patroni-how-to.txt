@@ -1,0 +1,11 @@
+#Restart cluster (scope in patroni.yml)
+patronictl -c /etc/patroni/patroni.yml restart postgres
+
+#Edit patroni config
+patronictl -c /etc/patroni/patroni.yml edit-config
+
+#Show patroni config
+patronictl -c /etc/patroni/patroni.yml show-config postgres
+
+#Show cluster
+patronictl -c /etc/patroni/patroni.yml list postgres
