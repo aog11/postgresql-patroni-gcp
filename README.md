@@ -22,6 +22,9 @@ For the purposes of this lab, two public access rules were configured:
 1. Access to all the deployed machines through port 22 in order to run the setup.yml Ansible playbook.
 2. Access to the HAProxy node through ports 31333 and 31334, to connect to the database and see the stats page.
 
+## Extra
+**04/04/2022** Deployed two additional PostgreSQL nodes to configure a standby cluster.
+
 ## Credits
 Special thanks to these two websites, which were used as guidance and reference for the setups contained in this exercise:
 

@@ -1,0 +1,142 @@
+---
+- hosts: pgsql_stby
+  gather_facts: no
+  remote_user: dbadmin
+
+  tasks:
+
+  - name: Loading variables
+    include_vars:
+      file: ./variables.yml
+      name: var
+  
+  - name: Obtaining node private IP
+    shell: hostname -I | awk '{print $1}'
+    register: node_ip
+
+- name: Setup of Patroni
+  hosts: pgsql_stby
+  gather_facts: no
+  remote_user: dbadmin
+  become: yes
+
+  tasks:
+
+  - name: Installing PostgreSQL repository RPM
+    dnf:
+      name: https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+      state: latest
+      disable_gpg_check: yes
+
+  - name: Installing Patroni package
+    dnf:
+      name: patroni
+      state: latest
+
+  - name: Creating patroni config directory
+    file:
+      path: /etc/patroni/
+      state: directory
+      mode: 0755
+
+  - name: Copying Patroni configuration file
+    copy:
+      src: ../files/patroni_stby.yml
+      dest: /etc/patroni/patroni.yml
+
+  - name: Replacing the servers in template file patroni.yml 
+    replace:
+      path: /etc/patroni/patroni.yml
+      regexp: 'pgsql_node_private_ip'
+      replace: "{{ node_ip.stdout }}"    
+  
+  - name: Replacing the servers in template file patroni.yml 
+    replace:
+      path: /etc/patroni/patroni.yml
+      regexp: 'pgsql_vm1_private_ip'
+      replace: "{{ var.pgsql_vm1_private_ip }}"
+
+  - name: Replacing the servers in template file patroni.yml 
+    replace:
+      path: /etc/patroni/patroni.yml
+      regexp: 'pgsql_vm2_private_ip'
+      replace: "{{ var.pgsql_vm2_private_ip }}"
+
+  - name: Replacing the servers in template file patroni.yml 
+    replace:
+      path: /etc/patroni/patroni.yml
+      regexp: 'pgsql_vm_stby1_private_ip'
+      replace: "{{ var.pgsql_vm_stby1_private_ip }}"
+
+  - name: Replacing the servers in template file patroni.yml 
+    replace:
+      path: /etc/patroni/patroni.yml
+      regexp: 'pgsql_vm_stby2_private_ip'
+      replace: "{{ var.pgsql_vm_stby2_private_ip }}"
+
+  - name: Replacing the servers in template file patroni.yml 
+    replace:
+      path: /etc/patroni/patroni.yml
+      regexp: 'etcd_vm_private_ip'
+      replace: "{{ var.etcd_vm_private_ip }}"
+
+- name: Setup of PostgreSQL
+  hosts: pgsql_stby
+  gather_facts: no
+  remote_user: dbadmin
+  become: yes
+
+  tasks:
+
+    - name: Partitioninig the attached disk
+      parted:
+        device: /dev/sdb
+        number: 1
+        state: present
+
+    - name: Formatting the attached disk
+      filesystem:
+        fstype: xfs
+        dev: /dev/sdb1
+
+    - name: Creating the postgres data directory
+      file: 
+        path: /var/lib/pgsql/13/
+        state: directory
+        mode: 0755
+
+    - name: Mounting the disk
+      mount:
+        fstype: xfs
+        src: /dev/sdb1
+        path: /var/lib/pgsql/13/
+        state: mounted
+
+    - name: Disabling default postgresql repo
+      shell: dnf -qy module disable postgresql
+
+    - name: Installing postgresql13-server package
+      dnf: 
+        name: postgresql13-server
+        state: latest
+    
+    #Only run during first time setup
+    - name: Deleting default PostgreSQL-13 folders
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/pgsql/13/data/
+        - /var/lib/pgsql/13/backups/
+
+    - name: Installing pip modules for Patroni
+      pip:
+        name: 
+          - urllib3
+          - patroni[etcd]
+
+    - name: Starting Patroni
+      systemd:
+        name: patroni
+        state: restarted
+        

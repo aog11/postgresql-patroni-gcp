@@ -1,6 +1,6 @@
-scope: postgres
-namespace: /db/
-name: pgsql_pgsql_node_private_ip
+scope: postgres_stby
+namespace: /db_stby/
+name: pgsql_stby_pgsql_node_private_ip
 
 restapi:
     listen: pgsql_node_private_ip:8008
@@ -19,6 +19,10 @@ bootstrap:
             use_pg_rewind: true
             parameters:
               max_connections: 150
+        
+        standby_cluster:
+            host: pgsql_vm2_private_ip
+            port: 5432
 
     initdb:
     - encoding: UTF8
@@ -28,6 +32,8 @@ bootstrap:
     - host replication replicator 127.0.0.1/32 md5
     - host replication replicator pgsql_vm1_private_ip/0 md5
     - host replication replicator pgsql_vm2_private_ip/0 md5
+    - host replication replicator pgsql_vm_stby1_private_ip/0 md5
+    - host replication replicator pgsql_vm_stby2_private_ip/0 md5
     - host all all 0.0.0.0/0 md5
 
     users:

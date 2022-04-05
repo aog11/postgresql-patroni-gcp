@@ -148,6 +148,45 @@ resource "google_compute_instance" "pgsql-vm" {
   }
 }
 
+#Disks to be used for postgres data directory in standby cluster
+resource "google_compute_disk" "postgres-stby-data-disk" {
+  count = 2
+  project = var.project
+  name    = "postgres-stby-data-disk-vm${count.index + 1}"
+  type    = "pd-ssd"
+  zone    = var.zone
+  size    = 25
+}
+
+#PostgreSQL VMs for the standby cluster creation, adding user's SSH keys for access
+resource "google_compute_instance" "pgsql-vm-stby" {
+  count = 2
+  name = "${var.pgsql_vm_name}-stby${count.index + 1}"
+  machine_type = "e2-standard-4"
+  tags = ["pgsql-nodes"]
+  network_interface {
+    network = google_compute_network.vnet-us-east1.name
+    subnetwork = google_compute_subnetwork.subnet-pgsql.name
+    access_config {
+    }
+  }
+  boot_disk {
+    initialize_params {
+      image = var.vm_image_name
+    }
+  }
+
+  attached_disk {
+    source = google_compute_disk.postgres-stby-data-disk[count.index].self_link
+    device_name = "postgres-data-disk0"
+    mode = "READ_WRITE"
+  }
+
+  metadata = {
+    ssh-keys = "${var.ssh_user}:${file(var.ssh_pub_key_file)}"
+  }
+}
+
 #HAProxy VM creation, adding user's SSH keys for access
 resource "google_compute_instance" "haproxy-vm" {
   name = "${var.haproxy_vm_name}"
