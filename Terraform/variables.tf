@@ -12,8 +12,6 @@ variable "service_account" { }
 #VPC properties
 variable "vpc_name" { }
 
-variable "etcd_ip_range" { }
-
 variable "pgsql_ip_range" { }
 
 variable "haproxy_ip_range" { }
@@ -22,8 +20,6 @@ variable "haproxy_ip_range" { }
 variable "pgsql_vm_name" { }
 
 variable "haproxy_vm_name" { }
-
-variable "etcd_vm_name" { }
 
 variable "vm_image_name" {
   default = "rocky-linux-cloud/rocky-linux-8"

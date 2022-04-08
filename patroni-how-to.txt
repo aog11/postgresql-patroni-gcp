@@ -12,3 +12,6 @@ patronictl -c /etc/patroni/patroni.yml show-config postgres
 
 #Show cluster
 patronictl -c /etc/patroni/patroni.yml list postgres
+
+#Remove cluster from DCS
+patronictl -c /etc/patroni/patroni.yml remove postgres

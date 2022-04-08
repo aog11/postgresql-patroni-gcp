@@ -21,13 +21,6 @@ resource "google_compute_network" "vnet-us-east1" {
 }
 
 #Subnet for each set of machines
-resource "google_compute_subnetwork" "subnet-etcd" {
-  name = "subnet-etcd"
-  ip_cidr_range = var.etcd_ip_range
-  region = var.region
-  network = google_compute_network.vnet-us-east1.id
-}
-
 resource "google_compute_subnetwork" "subnet-pgsql" {
   name = "subnet-pgsql"
   ip_cidr_range = var.pgsql_ip_range
@@ -44,7 +37,7 @@ resource "google_compute_subnetwork" "subnet-haproxy" {
 
 #Firewall setup
 
-#Private access between postgres nodes through ports 22, 5432, 8008
+#Private access between postgres nodes for SSH, PostgreSQL and Consul agents
 resource "google_compute_firewall" "pgsql_private_access" {
   name    = "fw-private-access-pgsql"
   network = google_compute_network.vnet-us-east1.name
@@ -53,20 +46,12 @@ resource "google_compute_firewall" "pgsql_private_access" {
 
   allow {
     protocol = "tcp"
-    ports    = ["22", "5432", "8008"]
+    ports    = ["22", "5432", "8008", "8300", "8301", "8302", "8400", "8500", "8600"]
   }
-}
-
-#Private access from postgres nodes to etcd through ports 2379, 2380, 7001
-resource "google_compute_firewall" "etcd_private_access" {
-  name    = "fw-private-access-pgsql-to-etcd"
-  network = google_compute_network.vnet-us-east1.name
-  source_ranges = [var.pgsql_ip_range]
-  target_tags = ["etcd-node"]
 
   allow {
-    protocol = "tcp"
-    ports    = ["2379", "2380", "7001"]
+    protocol = "udp"
+    ports = ["8301", "8302", "8600"]
   }
 }
 
@@ -111,7 +96,7 @@ resource "google_compute_firewall" "haproxy_public_access" {
 
 #Disks to be used for postgres data directory
 resource "google_compute_disk" "postgres-data-disk" {
-  count = 2
+  count = 3
   project = var.project
   name    = "postgres-data-disk-vm${count.index + 1}"
   type    = "pd-ssd"
@@ -121,7 +106,7 @@ resource "google_compute_disk" "postgres-data-disk" {
 
 #PostgreSQL VMs creation, adding user's SSH keys for access
 resource "google_compute_instance" "pgsql-vm" {
-  count = 2
+  count = 3
   name = "${var.pgsql_vm_name}${count.index + 1}"
   machine_type = "e2-standard-4"
   tags = ["pgsql-nodes"]
@@ -195,28 +180,6 @@ resource "google_compute_instance" "haproxy-vm" {
   network_interface {
     network = google_compute_network.vnet-us-east1.name
     subnetwork = google_compute_subnetwork.subnet-haproxy.name
-    access_config {
-    }
-  }
-  boot_disk {
-    initialize_params {
-      image = var.vm_image_name
-    }
-  }
-
-  metadata = {
-    ssh-keys = "${var.ssh_user}:${file(var.ssh_pub_key_file)}"
-  }
-}
-
-#etcd VM creation, adding user's SSH keys for access
-resource "google_compute_instance" "etcd-vm" {
-  name = "${var.etcd_vm_name}"
-  machine_type = "e2-standard-4"
-  tags = ["etcd-node"]
-  network_interface {
-    network = google_compute_network.vnet-us-east1.name
-    subnetwork = google_compute_subnetwork.subnet-etcd.name
     access_config {
     }
   }

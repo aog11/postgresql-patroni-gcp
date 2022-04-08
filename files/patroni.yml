@@ -1,4 +1,4 @@
-scope: postgres
+scope: pgsql_consul
 namespace: /db/
 name: pgsql_pgsql_node_private_ip
 
@@ -6,8 +6,8 @@ restapi:
     listen: pgsql_node_private_ip:8008
     connect_address: pgsql_node_private_ip:8008
 
-etcd:
-    host: etcd_vm_private_ip:2379
+consul:
+    host: pgsql_node_private_ip:8500
 
 bootstrap:
     dcs:
@@ -28,6 +28,7 @@ bootstrap:
     - host replication replicator 127.0.0.1/32 md5
     - host replication replicator pgsql_vm1_private_ip/0 md5
     - host replication replicator pgsql_vm2_private_ip/0 md5
+    - host replication replicator pgsql_vm3_private_ip/0 md5
     - host all all 0.0.0.0/0 md5
 
     users:
