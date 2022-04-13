@@ -2,7 +2,7 @@
 
 The goal of this small project is to deploy and configure, with Terraform and Ansible, virtual machines in GCP that will be used to set up PostgreSQL replication with Patroni.
 
-**TODO**
+![image](https://user-images.githubusercontent.com/15926414/163117462-b4a45a51-c6da-451f-9d69-358c43b3a3e8.png)
 
 ## Extra
 **04/04/2022** Deployed two additional PostgreSQL nodes to configure a standby cluster.
